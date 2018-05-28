@@ -1,3 +1,10 @@
+# extra image file ignore
+*.jpg
+*.png
+*.tiff
+*.TIF
+*.tif
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
