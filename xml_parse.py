@@ -6,6 +6,8 @@ import numpy as np
 import scipy as sp
 from PIL import Image, ImageDraw
 
+nx, ny = 256,256
+
 def parsePolygon( etelem ):
     points = []
     for pt in etelem.findall('pt'):
@@ -25,7 +27,6 @@ def parsePolygon( etelem ):
     return points
 
 def parseLabeledObjects(root, maskDir):
-    nx, ny = 256, 256
 
     file_name = root.findall('filename')[0].text
     polygon = []
@@ -53,10 +54,11 @@ def parseLabeledObjects(root, maskDir):
     for poly,name in zip(polygon,name_list):
         print(name)
         color = (255,100,0)
+        #color = (0,0,0)
         if (len(poly) < 3): continue
 
-
-        ImageDraw.Draw(img).polygon(poly, outline=color, fill=(255,100,0))
+        ImageDraw.Draw(img).polygon(poly, outline=color, fill=color)
+        #ImageDraw.Draw(img).polygon(poly, outline=color)
         mask = np.array(img)
 
     #file_name = file_name.replace('.jpg','_m.jpg')
@@ -82,6 +84,7 @@ def parseFolder( localDir, maskDir):
 def combineMaskImage(maskDir,imageDir,maskImageComb):
     maskPath = os.path.join(maskDir) + '/*.png'
     imagePath = os.path.join(imageDir) + '/*.jpg'
+    print('combined mask')
 
     for maskFullPath, imageFullpath in zip(glob.glob( maskPath ), glob.glob( imagePath ) ):
         maskImg = Image.open(maskFullPath)
@@ -105,8 +108,8 @@ def combineMaskImage(maskDir,imageDir,maskImageComb):
 
 
 maskDir = './mask/'
-xmlFolder = './mturk_256/'
-imageDir = './mturk_images/'
+xmlFolder = './xml/'
+imageDir = './img/'
 maskImageComb = './combined/'
 
 parseFolder(xmlFolder,maskDir)
