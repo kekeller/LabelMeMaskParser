@@ -1,0 +1,248 @@
+\documentclass[a4paper]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{pdfpages}
+
+\title{Image Segmentation with Mechanical Turk}
+
+\author{Kevin Keller}
+
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+
+\newpage
+
+
+\section{Introduction}
+\label{sec:introduction}
+
+LabelMe Annotation \href{http://labelme.csail.mit.edu/Release3.0}{Tool} is an open source software project to crowd source image data sets. This document steps through the process of installing the software on an Amazon Web Service (AWS) server to allow integration with Amazon Mechanical Turk. 
+
+Mechanical \href{https://www.mturk.com/}{Turk} is a platform provided by Amazon to allow crowd sourcing of simple tasks. A common MTurk task is to segment objects in images. Each task, commonly called a Human Intelligence Task, or HIT, is performed by a human and costs anywhere from \$0.01 to \$2 depending on the length and difficulty of the tasks. 
+
+For the Crop Science Soybean segmenation project, we used LabelMe and MTurk to generate our labeled dataset for our segmentation algorithms. Using the MTurk platform, we created a set of HITs that presented the LabelMe annotation tools along with an image of a soybean plant. The worker then outlined the edges of all the leaves. To increase mask accuracy, each image was segmented three times, by three different workers. The last step is to convert these polygons into black and white image masks. 
+
+
+\section{LabelMe Installation}
+\label{sec:Installation}
+
+Each Human Intelligence Task (HIT) on the MTurk platform is generated and managed by the LabelMe Annotation Tool software installed on our server. When the worker on the Amazon platform performs our HIT, the image and annotation tools are passed from our server to the MTurk platform using an HTML iframe embedded in the amazon site. For each of these linked tasks, Amazon requires that the connection from the external server to the Amazon server have an SSL encryption. 
+
+As each server configuration can be different between operating systems and software versions, the precise commands might need to be modified for your server. 
+
+\subsection{Server Setup}
+For our project we used an \href{https://aws.amazon.com/ec2/}{Amazon AWS EC2} instance to host the LabelMe software. The free tier of the provided instance was sufficient for hosting the software, storing the jpg images, and the annotation results. I used an Ubuntu instance as I am most familiar with this distro of Linux.
+
+For this EC2 instance, generate an SSH key file (.pem) and connect from your computer to the remote instance over SSH. All the setup for the software will be done over the SSH connection. 
+
+Run the following commands to install the Apache webserver and allow cgi scripts.
+
+\bigskip
+
+		apt-get install apache2
+	
+		apt-get install libapache2-mod-perl2
+	
+		a2enmod include
+	
+		a2enmod rewrite
+		
+		a2enmod ssl
+
+\bigskip
+
+The DNS server provided for the Amazon EC2 instance should now resolve in a browser to the apache configuration page. It will say Apache is installed, but no website has been activated. 
+
+\subsection{Domain Name Link}
+
+For the SSL setup, a registered domain (not simply an Amazon DNS) is required. I used a personal domain registered through NameCheap.com for this EC2 instance. To associate the domain name with the EC2 instance these are the steps I used, but depending on the Domain Registrar the settings will be different. 
+
+These instructions were provided by \href{https://u.osu.edu/walujo.1/2016/07/07/associate-namecheap-domain-to-amazon-ec2-instance/}{The Ohio State University}
+
+\begin{enumerate}
+\item     Log into NameCheap.com and Amazon Web Services (AWS).
+\item     In your NameCheap.com dashboard, go to “Domain List” and locate the domain name you want to point to AWS. Click the “manage” button.
+\item     On the next page, click “Advanced DNS” tab. Under host records section, you should see 2 entries with “@” and “www”.
+\item     Switch to AWS management console and go to your EC2 instance.
+\item     On the left menu, click “Elastic IPs”
+\item     Click “Allocate new address”.
+\item     Select the new address you just created and click “Associate address”.
+\item     Select your network interface from the drop-down.
+\item     Select the private address from the drop-down and click “Associate”
+\item     The changes in “Elastic IPs” will reflect on public IP address of the EC2 instance.
+\item     Copy the public IP address and public DNS
+\item     Switch back to NameCheap.com, locate entry with “@” symbol, set type to “A Record” and set value to public IP address
+\item     Locate entry with “www”, set type to “CNAME Record” and set value to public DNS
+\item     Apply your changes and you’re done!
+\end{enumerate}
+
+At this point you should be able to point your browser to http://www.yournewdomain.com and the same apache setup page should be visible.
+
+\subsection{SSL Encryption Setup}
+
+SSL/TLS encryption for the website requires installing a security certificate on your server. I generated the SSL certificate files for free using \href{https://www.sslforfree.com}{this site}. After proving domain ownership, a \textit{intermediate.crt, server.crt}, and \textit{server.key} are generated. Install these files in the /etc/apache2/ssl folder. 
+
+Edit the /etc/apache2/sites-available/default-ssl.conf file to finalize the ssl setup. Restart the apache server using "service apach2 restart". After the configuration changes and restart, the site should be accesible as \textit{https://yourdomain.com}.
+
+\bigskip
+
+		ServerName yourcustomdomain.com
+		
+		ServerAlias www.yourcustomdomain.com
+
+		ErrorLog \$\{APACHE\_LOG\_DIR\}/error.log
+		
+		CustomLog \$\{APACHE\_LOG\_DIR\}/access.log combined
+
+		SSLEngine on
+		
+		SSLCertificateFile /etc/apache2/ssl/server.crt
+		
+        SSLCertificateKeyFile /etc/apache2/ssl/server.key
+
+\subsection{LabelMe Software Installation}
+
+Clone the git repository \href{https://github.com/CSAILVision/LabelMeAnnotationTool}{LabelMeAnnotationTool} into the /var/www/html folder on the EC2 instance. It will generate a folder called 'LabelMeAnnotationTool'. Change into that folder and run \textit{make}. This will build all the software for LabelMe. 
+
+The last step in the software setup is to once again update /etc/apache2/sites-available/default-ssl.conf with the details of the LabelMe software. Add the following lines below the SSL setup configuration. 
+\bigskip
+
+
+DocumentRoot /var/www/html
+
+$<$Directory "/var/www/html/LabelMeAnnotationTool"$>$
+
+			Options Indexes FollowSymLinks MultiViews Includes ExecCGI
+			
+			AddHandler cgi-script .cgi
+			
+			AllowOverride all
+			
+			Require all granted
+			
+			AddType text/html .shtml
+			
+			AddOutputFilter INCLUDES .shtml
+			
+			DirectoryIndex index.shtml
+			
+$<$/Directory$>$
+
+\bigskip
+
+The last step is to restart the apache server with "service apach2 restart". 
+
+\bigskip
+
+At this point check your server:
+
+https://yourdomain.com/tool.html?folder=example\_older\&image=img1.jpg
+
+\bigskip
+
+
+The example image of LabelMe should be visible and the tools working.
+
+%\subsection{References}
+%The main help for the setup came from 
+
+\section{Mechanical Turk Setup}
+
+The Mechanical Turk setup is simpler than the LabelMe software installation, but still has a number of steps involved. For the setup, first create an account on the following Aamazon site: \href{https://requester.mturk.com}{requester.mturk.com}. 
+
+\bigskip
+
+The directions to setup all the required accounts and software are found on the \href{https://requester.mturk.com/developer}{developer's} link on the requester site. We will go through each step in detail below. The LabelMe team also provide detailed \href{http://labelme2.csail.mit.edu/Release3.0/browserTools/php/mechanical_turk.php
+}{instructions} for the software setup. 
+	
+%You should be able to use the same username and password and simply log into each one of them. The AWS account needs to be linked to your computer using an access key and secret key, and this same account is used to manage the EC2 instance if that was used for the website hosting. 
+
+\subsection{Link AWS and MTurk account}
+The first step is to link your AWS account to your MTurk account. You should be able to use the same account and password as the requester account. To manage the Amazon Mechanical Turk jobs, Amazon provides a set of linux command line (CLI) tools \href{https://requester.mturk.com/developer/tools/clt
+}{here}. These tools provide the link to communicate with the MTurk site. Download the tools and extract them to your working directory. 
+
+In this CLI tool directory, open and modify the properties file in:
+
+ \textit{./cli\_tools/bin/mturk.properties} 
+ 
+ to include the access key and secret key from your aws account. This access key and secret key are created using your AWS account and then also linked on the requester's website. 
+
+The last step is to create a MTurk Developer Sandbox account. This sandbox is used to test the HIT without paying. The Sandbox allows you to test all the normal steps in the MTurk pipeline (publish, perform, review, etc.). 
+
+\subsection{Upload Images}
+Using an SSH client or filezilla, transfer a set of images to be labeled to the LabelMe website we created. Place the task images into the LabelMeAnnotationTool \textbf{Images} directory. 
+
+\subsection{LabelMe Matlab Toolbox}
+To interface LabelMe and MTurk, and to generate and control th HITs, download the LabelMe-Mechanical-Turk toolbox for MATLAB \href{https://github.com/CSAILVision/LabelMeMechanicalTurk
+}{from github}. The demo.m script provides an overview of the process of placing the HITS on either the sandbox or the requesters website. Some of the scripts might need to be modified to match the specifics of your project. For example, I did not use the \textit{collection} label because of the folder structure of the images on the server. These parameters will need to be individually set based on your details.
+
+There is a flag in the main \textit{demo.m} file that shows how the sandbox can be selected to test the HIT setup. 
+
+\subsection{LabelMe HIT Instructions}
+The last step is to prepare a set of instructions for each worker on MTurk to read before the HIT. The wording of these instructions is vital to getting good results. In my instructions I provided examples of how each image should be segmented as well as examples of the work that would be rejected. The LabelMe tool provides an instruction script in the \textit{annotationTools/html} directory. 
+
+I suggest submitting a small set of images as a test set and modify the instructions based on the types of mistakes that you get. I have included a copy of the instruction page used for my soybean project in Section \ref{instructions}. 
+
+\subsection{Review and Pay Workers}
+Before the HIT can be submitted to the actual MTurk site, you need to add money to your requester account. Each HIT costs 20\% more than the price you pay to the worker as a fee for Amazon. For example if you pay \$1 to the worker, you will also pay \$0.20 to Amazon. When setting the price keep an estimate of the time required for each HIT and choose a fair payment. 
+
+After the HIT is submitted to the actual MTurk site, you can use the MATLAB toolbox to monitor the status of the HITs to see when they are complete. The MATLAB toolbox downloads a csv file that contains all the details about the HIT that are needed to review the work. I found that a few hundred images can be segmented in a few hours. 
+
+After review, you can reject a specific HIT without pay, or accept the HIT and pay the worker. Amazon also provides tools to block specific workers or add extra requirements on who is able to perform the task. 
+
+\section{Parse Segmentation}
+
+The output of each HIT is stored as an XML files in \textit{Annotations$/$imageSet} on the server. I convert this output to png image masks and manually verify the accuracy of the MTurk worker. Some results were carelessly completed or did not follow the instructions. These masks are logged and that specific HIT is rejected. 
+
+For my data set I repeated each individual image three times (prefix A/B/C) when uploaded to the server. I wanted to be able to add redundancy in case one mask was poorly segmented. 
+
+\subsection{Scripts for Mask Generation}
+
+In my \href{https://github.com/kekeller/LabelMeMaskParser}{Github repository} I developed a number of scripts to convert the XML to image masks and prepare them for the final data set. 
+
+\subsubsection{XML Parse}
+This script reads all the xml files in a folder and produces a matching png mask file. It also produces an overlay file of the original image and the mask for visual verification. 
+
+\subsubsection{Mask Selection}
+
+This scripts allows you to view the three possible masks (overlayed on image), and then select A/B/C/ALL/NONE for each set of masks. The script then outputs a csv with the image name, and the selected mask(s) that will then be used for the final dataset. 
+
+\subsubsection{Final Mask Production}
+
+This script reads the csv file from the mask selection script, and produces a final mask image. For the individual mask, if the ALL option is selected, I used a majority voting scheme as shown below to create the final mask. I took each pixel in each of the three masks, and if at least two of the pixel values matched, that value was selected for the final mask. 
+
+\bigskip
+
+$Pixel_{Mask} = (Pixel_A \wedge Pixel_B) \lor (Pixel_A \wedge Pixel_C) \lor (Pixel_B \wedge Pixel_C) $
+
+\bigskip
+
+The final masks, overlay files, and original images are saved. These masks and images are now ready for use on your training algorithms. 
+
+\subsubsection{Keep and Reject Lists}
+This script reads the csv file with the mask selection and produces a reject list that you can submit to MTurk. These rejected HITs could then be resubmitted in another round of annotations.  
+
+
+%\begin{thebibliography}{9}
+%\bibitem{nano3}
+%  K. Grove-Rasmussen og Jesper Nygård,
+%  \emph{Kvantefænomener i Nanosystemer}.
+%  Niels Bohr Institute \& Nano-Science Center, Københavns Universitet
+
+%\end{thebibliography}
+\newpage
+\section{Label Me Instructions }
+\label{instructions}
+These instructions were used during the soybean labeling task. I suggest you run a few small tests to determine the best instructions for your project. These instructions were provided before each HIT the worker started. 
+\includepdf[scale=0.85]{mt_instructions.pdf}
+
+\end{document}
