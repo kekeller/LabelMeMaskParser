@@ -11,7 +11,7 @@ If there are a lot of NONE images, the last script builds a list of work IDs to 
 
 ## Moles Detective Project Changes
 In out project, we created our own annotations from moles images.  
-we used LabelMe, to label approximately 5000 raw data images. 
+we used [LabelMe](http://labelme.csail.mit.edu/Release3.0/), to label approximately 5000 raw data images. 
 for this target, those features was added:
 - there is now an option to parse a complete directory root with sub-directories.
 - it's possible to ignore unwanted labels although they exist in the xml.
