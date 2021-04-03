@@ -10,7 +10,7 @@ Then we take these masks and select the best option for our image using a matplo
 If there are a lot of NONE images, the last script builds a list of work IDs to reject on Amazon Mechanical Turk, as well as a list of images to repeat. 
 
 ## Moles Detective Project Changes
-In out project, we created our own annotations from moles images.  
+In our project, we created our own annotations from Skin lesions images.  
 we used [LabelMe](http://labelme.csail.mit.edu/Release3.0/), to label approximately 5000 raw data images. 
 for this target, those features was added:
 - there is now an option to parse a complete directory root with sub-directories.
