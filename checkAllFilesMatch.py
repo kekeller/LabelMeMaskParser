@@ -1,7 +1,7 @@
 import os, glob
 
-maskDir = '/home/kevin/Documents/Data_Set/Labeled_Data/MASK/'
-imgDir = '/home/kevin/Documents/Data_Set/Labeled_Data/IMAGES/'
+maskDir = '/home/haimzis/LabelMeMaskParser/mole/Masks/'
+imgDir = '/home/haimzis/LabelMeMaskParser/mole/img/'
 
 
 maskPath = os.path.join(maskDir) + '*.png'
